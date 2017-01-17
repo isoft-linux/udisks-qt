@@ -7,5 +7,5 @@ Name: udisks2-qt5
 Description: UDisks2 manipulation library for Qt5
 Version: @VERSION@
 Requires: QtCore, QtDBus
-Libs: -L${libdir} -lpackagekit-qt2
+Libs: -L${libdir}
 Cflags: -I${includedir}/UDisks2Qt5/udisks2-qt5
