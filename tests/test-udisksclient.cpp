@@ -8,10 +8,14 @@
  * See the file "COPYING" for the exact licensing terms.
  */
 
-#include "test-udisksclient.h"
-
 #include <QtTest/QTest>
 #include <QDebug>
+
+#include "test-udisksclient.h"
+#include "udisksobject.h"
+#include "udisksdrive.h"
+#include "udisksblock.h"
+#include "udiskspartition.h"
 
 QTEST_GUILESS_MAIN(TestUDisksClient)
 
@@ -29,7 +33,34 @@ TestUDisksClient::~TestUDisksClient()
     }
 }
 
-void TestUDisksClient::testGetObjects()
+void TestUDisksClient::testGetAllObjects()
 {
-    qDebug() << "DEBUG:" << __PRETTY_FUNCTION__ << m_UDisksClient->getObjects();
+    for (UDisksObject::Ptr objPtr : m_UDisksClient->getObjects()) {
+        qDebug() << objPtr->kind() << objPtr->path().path();
+    }
+}
+
+void TestUDisksClient::testGetDriveObjects() 
+{
+    for (const UDisksObject::Ptr drvPtr : m_UDisksClient->getObjects(UDisksObject::Drive)) {
+        qDebug() << drvPtr->path().path();
+        UDisksDrive *drv = drvPtr->drive();
+        if (drv == nullptr)
+            continue;
+        qDebug() << drv->id() << drv->size() << drv->opticalNumAudioTracks() << 
+            drv->opticalNumDataTracks() << drv->opticalNumSessions() << 
+            drv->opticalNumTracks() << drv->revision() << drv->seat() << 
+            drv->serial();
+        UDisksBlock *blk = drv->getBlock();
+        if (blk == nullptr)
+            continue;
+        qDebug() << blk->device() << blk->deviceNumber() << blk->id() << 
+            blk->preferredDevice() << blk->symlinks();
+        QDBusObjectPath tblPath = QDBusObjectPath("/org/freedesktop/UDisks2/block_devices/" + QString(blk->device()).mid(5)); // /dev
+        qDebug() << tblPath.path();
+        for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
+            UDisksPartition *part = partPtr->partition();
+            qDebug() << part->number() << part->size() << part->type();
+        }
+    }
 }

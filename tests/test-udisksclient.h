@@ -24,7 +24,8 @@ public:
     ~TestUDisksClient();
 
 private slots:
-    void testGetObjects();
+    void testGetAllObjects();
+    void testGetDriveObjects();
 
 private:
     UDisksClient *m_UDisksClient = nullptr;
