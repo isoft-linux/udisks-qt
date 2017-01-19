@@ -7,6 +7,9 @@ find_package(Qt5Core REQUIRED)
 find_package(Qt5DBus REQUIRED)
 
 set(CMAKE_BUILD_TYPE "Debug")
+if(CMAKE_BUILD_TYPE MATCHES [Dd]ebug)
+    find_package(Qt5Test REQUIRED)
+endif()
 
 set(UDISKS_VERSION_MAJOR  "0")
 set(UDISKS_VERSION_MINOR  "0")
@@ -72,3 +75,6 @@ include_directories(
 )
 
 add_subdirectory(src)
+if(CMAKE_BUILD_TYPE MATCHES [Dd]ebug)
+    add_subdirectory(tests)
+endif()

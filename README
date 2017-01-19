@@ -1,0 +1,14 @@
+udisks-qt
+
+Qt5 bindings for UDisks2.
+
+
+Build and Install
+
+mkdir build
+cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr    \
+    -DCMAKE_CXX_COMPILER=clang++
+make -j4
+sudo make install
+
