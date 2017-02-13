@@ -12,6 +12,8 @@
 #define TEST_UDISKSCLIENT_GUI_H
 
 #include <QtCore/QObject>
+#include <QComboBox>
+#include <QTableWidget>
 
 #include "udisksclient.h"
 
@@ -25,6 +27,10 @@ public:
 
 private slots:
     void testGetDriveObjects();
+
+private:
+    void getDriveObjects(QComboBox *combo, QTableWidget *table);
+    void comboTextChanged(QComboBox *combo, QString text, QTableWidget *table);
 
 private:
     UDisksClient *m_UDisksClient = nullptr;

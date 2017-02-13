@@ -11,6 +11,7 @@
 #include <QtTest/QTest>
 #include <QDebug>
 #include <QDialog>
+#include <QVBoxLayout>
 
 #include "test-udisksclient-gui.h"
 #include "udisksobject.h"
@@ -33,34 +34,85 @@ TestUDisksClientGui::~TestUDisksClientGui()
     }
 }
 
-void TestUDisksClientGui::testGetDriveObjects() 
+void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTableWidget *table) 
 {
-    m_UDisksClient->init();
+    table->clearContents();
 
-    auto *dlg = new QDialog;
+    QDBusObjectPath tblPath = QDBusObjectPath("/org/freedesktop/UDisks2/block_devices/" + text.mid(5));
+    qDebug() << tblPath.path();
+    int row = 0;
+    for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
+        UDisksPartition *part = partPtr->partition();
+        qDebug() << text + QString::number(part->number()) << part->size() / 1073741824.0 << part->type();
+        table->insertRow(row);
+        auto *item = new QTableWidgetItem(text + QString::number(part->number()));
+        table->setItem(row, 0, item);
+        item = new QTableWidgetItem(QString::number(part->size() / 1073741824.0));
+        table->setItem(row, 1, item);
+        row++;
+    }
 
-    connect(m_UDisksClient, &UDisksClient::objectsAvailable, [this](){
+    UDisksObject::Ptr blkPtr = m_UDisksClient->getObject(tblPath);
+    Q_ASSERT(blkPtr != nullptr);
+    
+    UDisksBlock *blk = blkPtr->block();
+    Q_ASSERT(blk != nullptr);
+
+    UDisksObject::Ptr drvPtr = blk->driveObjectPtr();
+    Q_ASSERT(drvPtr != nullptr);
+
+    UDisksDrive *drv = drvPtr->drive();
+    Q_ASSERT(drv != nullptr);
+    combo->setToolTip(drv->id());
+}
+
+void TestUDisksClientGui::getDriveObjects(QComboBox *combo, QTableWidget *table) 
+{
+    combo->clear();
     for (const UDisksObject::Ptr drvPtr : m_UDisksClient->getObjects(UDisksObject::Drive)) {
         qDebug() << drvPtr->path().path();
         UDisksDrive *drv = drvPtr->drive();
         if (drv == nullptr)
             continue;
-        qDebug() << drv->id() << drv->size() << drv->opticalNumAudioTracks() << 
-            drv->opticalNumDataTracks() << drv->opticalNumSessions() << 
-            drv->opticalNumTracks() << drv->revision() << drv->seat() << 
-            drv->serial();
+        qDebug() << "drv:--->" << drv->id() << drv->size() << 
+            drv->opticalNumAudioTracks() << drv->opticalNumDataTracks() << 
+            drv->opticalNumSessions() << drv->opticalNumTracks() << 
+            drv->revision() << drv->seat() << drv->serial();
         UDisksBlock *blk = drv->getBlock();
         if (blk == nullptr)
             continue;
-        qDebug() << blk->device() << blk->deviceNumber() << blk->id() << 
-            blk->preferredDevice() << blk->symlinks();
-        QDBusObjectPath tblPath = QDBusObjectPath("/org/freedesktop/UDisks2/block_devices/" + QString(blk->device()).mid(5)); // /dev
-        qDebug() << tblPath.path();
-        for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
-            UDisksPartition *part = partPtr->partition();
-            qDebug() << part->number() << part->size() << part->type();
-        }
+        qDebug() << "blk:------>" << blk->device() << blk->deviceNumber() << 
+            blk->id() << blk->preferredDevice() << blk->symlinks();
+        combo->addItem(blk->preferredDevice());
     }
+    connect(combo, &QComboBox::currentTextChanged, [=](const QString &text) {
+        comboTextChanged(combo, text, table);
+    });
+    comboTextChanged(combo, combo->currentText(), table);
+}
+
+void TestUDisksClientGui::testGetDriveObjects() 
+{
+    m_UDisksClient->init();
+
+    auto *dlg = new QDialog;
+    auto *vbox = new QVBoxLayout(dlg);
+    auto *combo = new QComboBox;
+    auto *table = new QTableWidget;
+    table->setColumnCount(2);
+    vbox->addWidget(combo);
+    vbox->addWidget(table);
+
+    connect(m_UDisksClient, &UDisksClient::objectAdded, [=](const UDisksObject::Ptr &object) {
+        getDriveObjects(combo, table);
+    });
+
+    connect(m_UDisksClient, &UDisksClient::objectRemoved, [=](const UDisksObject::Ptr &object) {
+        getDriveObjects(combo, table);
+    });
+
+    connect(m_UDisksClient, &UDisksClient::objectsAvailable, [=]() {
+        getDriveObjects(combo, table);
     });
 
     dlg->exec();
