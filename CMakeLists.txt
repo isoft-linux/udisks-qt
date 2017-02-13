@@ -9,6 +9,7 @@ find_package(Qt5DBus REQUIRED)
 set(CMAKE_BUILD_TYPE "Debug")
 if(CMAKE_BUILD_TYPE MATCHES [Dd]ebug)
     find_package(Qt5Test REQUIRED)
+    find_package(Qt5Widgets REQUIRED)
 endif()
 
 set(UDISKS_VERSION_MAJOR  "0")
