@@ -21,6 +21,8 @@
 
 QTEST_MAIN(TestUDisksClientGui)
 
+const QString udisksDBusPathPrefix = "/org/freedesktop/UDisks2/block_devices/";
+
 TestUDisksClientGui::TestUDisksClientGui()
 {
     m_UDisksClient = new UDisksClient;
@@ -36,19 +38,42 @@ TestUDisksClientGui::~TestUDisksClientGui()
 
 void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTableWidget *table) 
 {
+    if (text.isEmpty())
+        return;
+
+    table->setRowCount(0);
     table->clearContents();
 
-    QDBusObjectPath tblPath = QDBusObjectPath("/org/freedesktop/UDisks2/block_devices/" + text.mid(5));
+    QDBusObjectPath tblPath = QDBusObjectPath(udisksDBusPathPrefix + text.mid(5));
     qDebug() << tblPath.path();
-    int row = 0;
+    QList<UDisksPartition *> parts;
     for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
         UDisksPartition *part = partPtr->partition();
-        qDebug() << text + QString::number(part->number()) << part->size() / 1073741824.0 << part->type();
+        parts << part;
+    }
+    qSort(parts.begin(), parts.end(), [](UDisksPartition *p1, UDisksPartition *p2) -> bool {
+        return p1->number() < p2->number();
+    });
+
+    int row = 0;
+    for (const UDisksPartition *part : parts) {
         table->insertRow(row);
         auto *item = new QTableWidgetItem(text + QString::number(part->number()));
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         table->setItem(row, 0, item);
-        item = new QTableWidgetItem(QString::number(part->size() / 1073741824.0));
+        item = new QTableWidgetItem(QString::number(part->size() / 1073741824.0, 'f', 1) + " G");
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         table->setItem(row, 1, item);
+        QString partTypeStr = "Unknown";
+        UDisksObject::Ptr blkPtr = m_UDisksClient->getObject(QDBusObjectPath(udisksDBusPathPrefix + text.mid(5) + QString::number(part->number())));
+        if (blkPtr) {
+            UDisksBlock *blk = blkPtr->block();
+            if (blk) 
+                partTypeStr = blk->idType();
+        }
+        item = new QTableWidgetItem(partTypeStr);
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        table->setItem(row, 2, item);
         row++;
     }
 
@@ -69,6 +94,7 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
 void TestUDisksClientGui::getDriveObjects(QComboBox *combo, QTableWidget *table) 
 {
     combo->clear();
+
     for (const UDisksObject::Ptr drvPtr : m_UDisksClient->getObjects(UDisksObject::Drive)) {
         qDebug() << drvPtr->path().path();
         UDisksDrive *drv = drvPtr->drive();
@@ -85,6 +111,7 @@ void TestUDisksClientGui::getDriveObjects(QComboBox *combo, QTableWidget *table)
             blk->id() << blk->preferredDevice() << blk->symlinks();
         combo->addItem(blk->preferredDevice());
     }
+
     connect(combo, &QComboBox::currentTextChanged, [=](const QString &text) {
         comboTextChanged(combo, text, table);
     });
@@ -96,10 +123,13 @@ void TestUDisksClientGui::testGetDriveObjects()
     m_UDisksClient->init();
 
     auto *dlg = new QDialog;
+    dlg->resize(400, 300);
     auto *vbox = new QVBoxLayout(dlg);
     auto *combo = new QComboBox;
     auto *table = new QTableWidget;
-    table->setColumnCount(2);
+    table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    table->setSelectionMode(QAbstractItemView::SingleSelection);
+    table->setColumnCount(3);
     vbox->addWidget(combo);
     vbox->addWidget(table);
 
