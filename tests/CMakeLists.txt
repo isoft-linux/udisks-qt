@@ -1,4 +1,5 @@
 set(CMAKE_AUTOMOC ON)
+add_definitions(-std=c++11)
 
 add_executable(test-udisksclient
     test-udisksclient.cpp)

@@ -49,6 +49,7 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
     QList<UDisksPartition *> parts;
     for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
         UDisksPartition *part = partPtr->partition();
+        qDebug() << part->number() << part->isContainer();
         parts << part;
     }
     qSort(parts.begin(), parts.end(), [](UDisksPartition *p1, UDisksPartition *p2) -> bool {
@@ -58,12 +59,6 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
     int row = 0;
     for (const UDisksPartition *part : parts) {
         table->insertRow(row);
-        auto *item = new QTableWidgetItem(text + QString::number(part->number()));
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        table->setItem(row, 0, item);
-        item = new QTableWidgetItem(QString::number(part->size() / 1073741824.0, 'f', 1) + " G");
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        table->setItem(row, 1, item);
         QString partTypeStr = "Unknown";
         UDisksObject::Ptr blkPtr = m_UDisksClient->getObject(QDBusObjectPath(udisksDBusPathPrefix + text.mid(5) + QString::number(part->number())));
         if (blkPtr) {
@@ -71,8 +66,24 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
             if (blk) 
                 partTypeStr = blk->idType();
         }
+        auto *item = new QTableWidgetItem(text + QString::number(part->number()));
+        if (part->isContainer() || partTypeStr == "swap")
+            item->setFlags(Qt::NoItemFlags);
+        else
+            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        table->setItem(row, 0, item);
+        item = new QTableWidgetItem(QString::number(part->size() / 1073741824.0, 'f', 1) + " G");
+        if (part->isContainer() || partTypeStr == "swap")
+            item->setFlags(Qt::NoItemFlags);
+        else
+            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        table->setItem(row, 1, item);
+
         item = new QTableWidgetItem(partTypeStr);
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        if (part->isContainer() || partTypeStr == "swap")
+            item->setFlags(Qt::NoItemFlags);
+        else
+            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         table->setItem(row, 2, item);
         row++;
     }
