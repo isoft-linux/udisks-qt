@@ -16,6 +16,9 @@
 #include <QTableWidget>
 
 #include "udisksclient.h"
+#include "osprober.h"
+
+using OSProberType = org::isoftlinux::OSProber; 
 
 class TestUDisksClientGui : public QObject
 {
@@ -34,6 +37,8 @@ private:
 
 private:
     UDisksClient *m_UDisksClient = nullptr;
+    OSProberType *m_OSProber = nullptr;
+    QMap<QString, QString> m_OSMap;
 };
 
 #endif // TEST_UDISKSCLIENT_GUI_H

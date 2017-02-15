@@ -26,6 +26,11 @@ const QString udisksDBusPathPrefix = "/org/freedesktop/UDisks2/block_devices/";
 TestUDisksClientGui::TestUDisksClientGui()
 {
     m_UDisksClient = new UDisksClient;
+
+    m_OSProber = new OSProberType("org.isoftlinux.OSProber", 
+                                  "/org/isoftlinux/OSProber", 
+                                  QDBusConnection::systemBus(), 
+                                  this);
 }
 
 TestUDisksClientGui::~TestUDisksClientGui() 
@@ -33,6 +38,11 @@ TestUDisksClientGui::~TestUDisksClientGui()
     if (m_UDisksClient) {
         delete m_UDisksClient;
         m_UDisksClient = nullptr;
+    }
+
+    if (m_OSProber) {
+        delete m_OSProber;
+        m_OSProber = nullptr;
     }
 }
 
@@ -45,11 +55,9 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
     table->clearContents();
 
     QDBusObjectPath tblPath = QDBusObjectPath(udisksDBusPathPrefix + text.mid(5));
-    qDebug() << tblPath.path();
     QList<UDisksPartition *> parts;
     for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
         UDisksPartition *part = partPtr->partition();
-        qDebug() << part->number() << part->isContainer();
         parts << part;
     }
     qSort(parts.begin(), parts.end(), [](UDisksPartition *p1, UDisksPartition *p2) -> bool {
@@ -66,7 +74,8 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
             if (blk) 
                 partTypeStr = blk->idType();
         }
-        auto *item = new QTableWidgetItem(text + QString::number(part->number()));
+        QString partStr = text + QString::number(part->number());
+        auto *item = new QTableWidgetItem(partStr);
         if (part->isContainer() || partTypeStr == "swap")
             item->setFlags(Qt::NoItemFlags);
         else
@@ -85,6 +94,14 @@ void TestUDisksClientGui::comboTextChanged(QComboBox *combo, QString text, QTabl
         else
             item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
         table->setItem(row, 2, item);
+
+        qDebug() << "DEBUG:" << __PRETTY_FUNCTION__ << m_OSMap;
+        item = new QTableWidgetItem(m_OSMap[partStr]);
+        if (part->isContainer() || partTypeStr == "swap")
+            item->setFlags(Qt::NoItemFlags);
+        else
+            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        table->setItem(row, 3, item);
         row++;
     }
 
@@ -107,19 +124,12 @@ void TestUDisksClientGui::getDriveObjects(QComboBox *combo, QTableWidget *table)
     combo->clear();
 
     for (const UDisksObject::Ptr drvPtr : m_UDisksClient->getObjects(UDisksObject::Drive)) {
-        qDebug() << drvPtr->path().path();
         UDisksDrive *drv = drvPtr->drive();
         if (drv == nullptr)
             continue;
-        qDebug() << "drv:--->" << drv->id() << drv->size() << 
-            drv->opticalNumAudioTracks() << drv->opticalNumDataTracks() << 
-            drv->opticalNumSessions() << drv->opticalNumTracks() << 
-            drv->revision() << drv->seat() << drv->serial();
         UDisksBlock *blk = drv->getBlock();
         if (blk == nullptr)
             continue;
-        qDebug() << "blk:------>" << blk->device() << blk->deviceNumber() << 
-            blk->id() << blk->preferredDevice() << blk->symlinks();
         combo->addItem(blk->preferredDevice());
     }
 
@@ -140,16 +150,32 @@ void TestUDisksClientGui::testGetDriveObjects()
     auto *table = new QTableWidget;
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setSelectionMode(QAbstractItemView::SingleSelection);
-    table->setColumnCount(3);
+    table->setColumnCount(4);
     vbox->addWidget(combo);
     vbox->addWidget(table);
 
+    connect(m_OSProber, &OSProberType::Found, 
+        [this](const QString &part, const QString &name, const QString &shortname) {
+        qDebug() << "DEBUG:" << __PRETTY_FUNCTION__ << part << name;
+        m_OSMap[part] = name;
+    });
+
+    connect(m_OSProber, &OSProberType::Finished, [=]() { getDriveObjects(combo, table); });
+
+    m_OSProber->Probe();
+
     connect(m_UDisksClient, &UDisksClient::objectAdded, [=](const UDisksObject::Ptr &object) {
+        qDebug() << "DEBUG:" << __PRETTY_FUNCTION__;
         getDriveObjects(combo, table);
+        m_OSMap.clear();
+        m_OSProber->Probe();
     });
 
     connect(m_UDisksClient, &UDisksClient::objectRemoved, [=](const UDisksObject::Ptr &object) {
+        qDebug() << "DEBUG:" << __PRETTY_FUNCTION__;
         getDriveObjects(combo, table);
+        m_OSMap.clear();
+        m_OSProber->Probe();
     });
 
     connect(m_UDisksClient, &UDisksClient::objectsAvailable, [=]() {
