@@ -16,6 +16,7 @@
 #include "udisksdrive.h"
 #include "udisksblock.h"
 #include "udiskspartition.h"
+#include "udisksfilesystem.h"
 
 QTEST_GUILESS_MAIN(TestUDisksClient)
 
@@ -37,6 +38,12 @@ void TestUDisksClient::testGetAllObjects()
 {
     for (UDisksObject::Ptr objPtr : m_UDisksClient->getObjects()) {
         qDebug() << objPtr->kind() << objPtr->path().path();
+        UDisksFilesystem *fsys = objPtr->filesystem();
+        if (fsys) {
+            // It is *able* to get mount points of U-disk!
+            // for example ("/run/media/zhaixiang/1C96-A1A5")
+            qDebug() << "DEBUG:" << __PRETTY_FUNCTION__ << fsys->mountPoints();
+        }
     }
 }
 
