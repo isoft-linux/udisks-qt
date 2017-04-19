@@ -65,6 +65,8 @@ void TestUDisksClient::testGetDriveObjects()
             blk->preferredDevice() << blk->symlinks();
         QDBusObjectPath tblPath = QDBusObjectPath("/org/freedesktop/UDisks2/block_devices/" + QString(blk->device()).mid(5)); // /dev
         qDebug() << tblPath.path();
+        // Check partitions size at first!
+        qDebug() << "DEBUG:" << __PRETTY_FUNCTION__ << m_UDisksClient->getPartitions(tblPath).size();
         for (const UDisksObject::Ptr partPtr : m_UDisksClient->getPartitions(tblPath)) {
             UDisksPartition *part = partPtr->partition();
             qDebug() << part->number() << part->size() << part->type();
